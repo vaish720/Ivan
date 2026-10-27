@@ -6,14 +6,15 @@ Plan: `docs/ROADMAP.md`. Background research is kept outside the repo, in `../sa
 ## Commands
 
 - `uv run pytest`: fast tests (no LLM, no network). Run after every change.
-- `uv run eval`: scores the 30 commands in `evals/commands.yaml` against the real LLM and the fake calendar.
+- `uv run eval`: scores the 30 commands in `backend/evals/commands.yaml` against the real LLM and the fake calendar.
 - `uv run app`: serves the chat on http://localhost:8000.
 
 ## Conventions
 
 - Use the vocabulary in `GLOSSARY.md` in code, tests and replies: Rep, Meeting, Block, Reschedule, Cancel, Decline, Proposed Action and the rest.
 - Tools that change something only build a Proposed Action. The calendar is touched only in `ConfirmationGate.confirm()`.
-- New skills go in `app/skills/<name>/` and talk to Microsoft 365 through a Protocol port with a fake implementation for tests.
+- Layout: `frontend/` holds the browser pages (HTML/CSS/JS). `backend/app/` holds the Python package `app`, with tests in `backend/tests/`. Run commands from the repo root.
+- New skills go in `backend/app/skills/<name>/` and talk to Microsoft 365 through a Protocol port with a fake implementation for tests.
 
 ## Agent skills
 

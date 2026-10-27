@@ -21,8 +21,9 @@ from app.main import build_llm, build_session
 from app.skills.calendar.fake import FakeCalendar, working_days_from
 from app.skills.calendar.model import Contact
 
-COMMANDS = Path("evals/commands.yaml")
-RESULTS = Path("evals/results")
+EVALS = Path(__file__).resolve().parents[2] / "evals"  # backend/evals
+COMMANDS = EVALS / "commands.yaml"
+RESULTS = EVALS / "results"
 PASS_MARK = 0.9
 
 

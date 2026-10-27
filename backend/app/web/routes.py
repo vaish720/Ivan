@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.core.activity_log import ActivityLog
 from app.core.session import Session
 
-PAGES = Path(__file__).parent / "pages"
+PAGES = Path(__file__).resolve().parents[3] / "frontend"  # repo-root/frontend
 
 
 class ChatIn(BaseModel):

@@ -44,13 +44,20 @@ Phase 0 is finished when `uv run eval` scores at least 90%.
 ## Layout
 
 ```
-app/
-  core/          coordinator (agent), confirmation gate, Activity Log, session
-  providers/     LLM clients (Groq, Ollama) behind one interface
-  skills/calendar/  calendar tools, Slot finding, fake calendar, Outlook (Graph) calendar
-  graph/         Microsoft sign-in (MSAL)
-  web/           FastAPI routes and the chat / Activity Log pages
-  evals/         the scorer behind `uv run eval`
-evals/commands.yaml   the 30 test commands
-tests/                pytest
+frontend/                what runs in the browser
+  chat.html              the chat page (http://localhost:8000)
+  activity.html          the Activity Log page
+backend/                 the Python app
+  app/
+    main.py              starting point for `uv run app`
+    web/routes.py        the HTTP API the pages call
+    core/                coordinator (agent), confirmation gate, Activity Log, session
+    providers/           LLM clients (Groq, Ollama) behind one interface
+    skills/calendar/     calendar tools, Slot finding, fake calendar, Outlook (Graph) calendar
+    graph/               Microsoft sign-in (MSAL)
+    evals/               the scorer behind `uv run eval`
+  evals/commands.yaml    the 30 test commands
+  tests/                 pytest
 ```
+
+Run every command from the repo root.

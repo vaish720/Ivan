@@ -147,17 +147,20 @@ Pick these one at a time:
 - expense logging
 - live meeting coach
 
-## Repo layout (created in Phase 0)
+## Repo layout
 ```
-app/
-  graph/            # MSAL auth, Graph client wrapper
-  skills/{calendar,inbox,chat,followup,reminders,memory,calls}/
-  providers/{llm,stt,tts,embed,vector}/   # Protocol + free/paid adapters
-  voice/            # Pipecat pipeline + web page
-  scheduler/        # APScheduler jobs, delta sync, webhook renewals
-  store/            # SQLite schema, activity_log
-evals/commands.yaml
-tests/
+frontend/           browser pages (chat, Activity Log); voice UI joins here in Phase 1
+backend/
+  app/
+    graph/          MSAL auth
+    skills/calendar/   (more skills: inbox, chat, followup, reminders, memory, calls)
+    providers/      LLM clients behind one interface (later: stt, tts, embed, vector)
+    core/           coordinator, confirmation gate, Activity Log, session
+    web/            HTTP API for the frontend
+    voice/          Pipecat pipeline (Phase 1)
+    scheduler/      APScheduler jobs, delta sync (Phase 2+)
+  evals/commands.yaml
+  tests/
 docs/
 ```
 
