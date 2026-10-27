@@ -13,7 +13,7 @@ Plan: `docs/ROADMAP.md`. Background research is kept outside the repo, in `../sa
 
 - Use the vocabulary in `GLOSSARY.md` in code, tests and replies: Rep, Meeting, Block, Reschedule, Cancel, Decline, Proposed Action and the rest.
 - Tools that change something only build a Proposed Action. The calendar is touched only in `ConfirmationGate.confirm()`.
-- Layout: `frontend/` holds the browser pages (HTML/CSS/JS). `backend/app/` holds the Python package `app`, with tests in `backend/tests/`. Run commands from the repo root.
+- Layout: `frontend/` holds the browser pages (HTML/CSS/JS). `backend/app/` holds the Python package `app`, with tests in `backend/tests/`. Settings live in `backend/.env` (git-ignored; template in `backend/.env.example`). Run commands from the repo root.
 - New skills go in `backend/app/skills/<name>/` and talk to Microsoft 365 through a Protocol port with a fake implementation for tests.
 
 ## Agent skills

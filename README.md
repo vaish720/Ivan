@@ -11,14 +11,14 @@ A voice assistant for sales reps that works across Outlook and Teams. It is bein
 You need [uv](https://docs.astral.sh/uv/). It installs Python 3.11 for the project.
 
 ```sh
-cp .env.example .env      # then add GROQ_API_KEY (free at console.groq.com)
+cp backend/.env.example backend/.env   # then add GROQ_API_KEY (free at console.groq.com)
 uv sync
 uv run app                # http://localhost:8000
 ```
 
 The app starts on a **sample calendar** with a made-up week, so no Microsoft account is needed. To use a real Outlook calendar:
 1. Register an Entra app.
-2. Set `CALENDAR_BACKEND=graph`, `ENTRA_CLIENT_ID` and `ENTRA_TENANT_ID` in `.env`.
+2. Set `CALENDAR_BACKEND=graph`, `ENTRA_CLIENT_ID` and `ENTRA_TENANT_ID` in `backend/.env`.
 3. Run the app. A browser window opens for you to sign in.
 
 ## Things to try
