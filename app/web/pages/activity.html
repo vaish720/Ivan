@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activity Log</title>
+<style>
+  :root { --bg: #f3f6f6; --surface: #fff; --ink: #142228; --muted: #5a6b70; --line: #d6dfe0; --accent: #0b6d66;
+    --ok: #2e6b35; --ok-soft: #e1f0e2; --warn: #8a5200; --warn-soft: #fbefd9; --bad: #a12a2a; --bad-soft: #f8e1e1; --font: "Segoe UI", system-ui, sans-serif; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1719; --surface: #162226; --ink: #e4eeee; --muted: #98abaf; --line: #2a3a3e; --accent: #4fc3b6;
+      --ok: #8fd197; --ok-soft: #1c3320; --warn: #f0b45a; --warn-soft: #3a2c14; --bad: #f19a9a; --bad-soft: #3d1b1b; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font); }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 14px; }
+  header { display: flex; align-items: baseline; gap: 16px; }
+  h1 { font-size: 1.3rem; margin: 0; flex: 1; }
+  a { color: var(--accent); }
+  .table { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  td.args { font-family: Consolas, monospace; font-size: .8rem; color: var(--muted); max-width: 320px; overflow-wrap: anywhere; }
+  td.time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill { font-size: .75rem; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .ok, .confirmed { background: var(--ok-soft); color: var(--ok); }
+  .proposed, .notice { background: var(--warn-soft); color: var(--warn); }
+  .failed, .expired, .cancelled { background: var(--bad-soft); color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Activity Log</h1><a href="/">Back to chat</a></header>
+  <p>Everything the assistant read or did on your behalf, newest first. Message bodies are never stored.</p>
+  <div class="table"><table>
+    <thead><tr><th>When</th><th>Tool</th><th>Status</th><th>Result</th><th>Details</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="5">Loading…</td></tr></tbody>
+  </table></div>
+</div>
+<script>
+fetch("/api/activity").then(r => r.json()).then(entries => {
+  const rows = document.getElementById("rows"); rows.replaceChildren();
+  if (!entries.length) { rows.innerHTML = "<tr><td colspan='5'>Nothing yet. Ask the assistant something.</td></tr>"; return; }
+  for (const e of entries) {
+    const tr = document.createElement("tr");
+    const cell = (text, cls) => { const td = document.createElement("td"); if (cls) td.className = cls; td.textContent = text; tr.appendChild(td); return td; };
+    cell(new Date(e.at).toLocaleString(), "time");
+    cell(e.tool);
+    const pill = document.createElement("span"); pill.className = "pill " + e.status; pill.textContent = e.status; cell("").appendChild(pill);
+    cell(e.summary);
+    cell(JSON.stringify(e.args), "args");
+    rows.appendChild(tr);
+  }
+});
+</script>
+</body>
+</html>

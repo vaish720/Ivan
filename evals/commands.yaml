@@ -1,0 +1,130 @@
+# Phase 0 test commands. Run with: uv run eval
+#
+# The clock is fixed to Monday 08:30 of the current week, on the fake calendar.
+# Days are written as d0..d6 = the next 7 working days: d0 Mon, d1 Tue, d2 Wed,
+# d3 Thu, d4 Fri, d5 next Mon, d6 next Tue.
+#
+# expect: create | reschedule | cancel | decline | clarify | answer  (or a list of acceptable outcomes)
+#   create/reschedule: at, minutes, attendees, teams are checked when given
+#   cancel/decline/reschedule: meeting = title of the Meeting acted on; note_contains checks the note
+#   answer: no change proposed; every string in `mentions` appears in the reply (any of `mentions_any`)
+#   clarify: no change proposed and the reply asks a question
+#
+# Edit these so they sound like your reps.
+
+# --- reading ---------------------------------------------------------------
+- say: What's on tomorrow?
+  expect: answer
+  mentions: [Acme pricing call, Q4 forecast review]
+- say: Do I have anything Thursday afternoon?
+  expect: answer
+  mentions: [out of office]
+- say: When's my next meeting with Globex?
+  expect: answer
+  mentions: [Globex discovery]
+- say: Find me 45 minutes with Priya next week
+  expect: answer
+  mentions_any: ["09:00", "9:00", "9 am", "9am", "9 AM", "9AM"]
+- say: Am I free at 2 on Wednesday?
+  expect: answer
+  mentions: [Raj]
+
+# --- creating --------------------------------------------------------------
+- say: Book 30 min with Sam Carter on Wednesday at 4 pm
+  expect: create
+  at: d2 16:00
+  minutes: 30
+  attendees: [sam.carter@acme.example]
+  teams: true
+- say: Set up an in-person meeting with Lena from Globex Thursday at 11
+  expect: create
+  at: d3 11:00
+  attendees: [lena.ortiz@globex.example]
+  teams: false
+- say: Schedule an hour with Ananya on Friday at 10am about the Q4 deck
+  expect: create
+  at: d4 10:00
+  minutes: 60
+  attendees: [ananya.rao@contoso.example]
+- say: Book 30 minutes with Raj tomorrow at 4
+  expect: clarify
+- say: Book 30 min with Raj Kumar tomorrow afternoon
+  expect: create
+  at: d1 12:00
+  attendees: [raj.kumar@contoso.example]
+- say: Meet with tom.becker@initech.example Wednesday 3pm for 45 minutes
+  expect: create
+  at: d2 15:00
+  minutes: 45
+  attendees: [tom.becker@initech.example]
+- say: Book a call with gavin@hooli.example next Monday at 2
+  expect: create
+  at: d5 14:00
+  attendees: [gavin@hooli.example]
+- say: Set up a meeting with Priya and Ananya on Thursday at 9:30
+  expect: create
+  at: d3 09:30
+  attendees: [priya.shah@contoso.example, ananya.rao@contoso.example]
+- say: Book something with the Acme guy tomorrow at 5
+  expect: create
+  at: d1 17:00
+  attendees: [sam.carter@acme.example]
+- say: Book a meeting with Dave tomorrow at 10
+  expect: clarify
+- say: Book 30 min with Raj Mehta tomorrow at 3
+  expect: create
+  at: d1 15:00
+  attendees: [raj.mehta@contoso.example]
+
+# --- rescheduling ----------------------------------------------------------
+- say: Push my Acme pricing call to Thursday at 11
+  expect: reschedule
+  meeting: Acme pricing call
+  at: d3 11:00
+- say: Move the Globex discovery to 2 pm the same day
+  expect: reschedule
+  meeting: Globex discovery
+  at: d2 14:00
+- say: Move my 3 pm tomorrow to 5
+  expect: clarify
+- say: Make the Initech follow-up an hour instead
+  expect: reschedule
+  meeting: Initech follow-up
+  at: d6 12:00
+  minutes: 60
+- say: Move today's pipeline sync to 11:30
+  expect: reschedule
+  meeting: Weekly pipeline sync
+  at: d0 11:30
+- say: Move the Q4 forecast review to Wednesday
+  expect: [decline, clarify]
+  meeting: Q4 forecast review
+
+# --- cancelling ------------------------------------------------------------
+- say: Cancel my Acme pricing call
+  expect: cancel
+  meeting: Acme pricing call
+- say: Kill the 4 o'clock today
+  expect: cancel
+  meeting: Acme onboarding check-in
+- say: Clear my focus time tomorrow
+  expect: cancel
+  meeting: Focus time
+- say: Cancel all the weekly pipeline syncs
+  expect: clarify
+- say: Cancel the Raj Kumar sync and tell him I'm travelling
+  expect: cancel
+  meeting: Raj Kumar sync
+  note_contains: travel
+
+# --- declining -------------------------------------------------------------
+- say: Decline the team retro on Friday
+  expect: decline
+  meeting: Team retro
+- say: I can't make the 1:1 with Raj on Wednesday, decline it and suggest Thursday morning
+  expect: decline
+  meeting: "1:1 Raj"
+  note_contains: Thursday
+- say: Delete the Q4 forecast review
+  expect: [decline, clarify]
+  meeting: Q4 forecast review
