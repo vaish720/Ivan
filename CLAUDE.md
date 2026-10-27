@@ -1,7 +1,7 @@
 # Sales voice assistant
 
 Voice assistant for sales reps on Outlook + Teams.
-Plan: `docs/ROADMAP.md` · research: `docs/research/`
+Plan: `docs/ROADMAP.md`. Background research is kept outside the repo, in `../sales-assistant-notes/`.
 
 ## Commands
 

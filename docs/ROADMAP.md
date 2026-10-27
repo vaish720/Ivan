@@ -1,8 +1,8 @@
 # Sales voice assistant: phased roadmap
-_Drafted 2026-10-27. The vendor facts, prices and limits behind this plan are cited in [research/2026-10-27-voicebot-free-api-stack.md](research/2026-10-27-voicebot-free-api-stack.md)._
+_Drafted 2026-10-27. Vendor facts, prices and limits were checked against official docs on that date. Re-check them before choosing a vendor._
 
 ## Context
-Sales reps live in Outlook and Teams and lose time on admin: booking and moving meetings, chasing follow-ups, deciding which mail matters. OpenAI's Dots (see `../openai-dots-teardown/`) shows the pattern we want: a personal, always-on assistant with memory and permissions. Ours is narrower and voice-first, built for sales reps on Microsoft 365.
+Sales reps live in Outlook and Teams and lose time on admin: booking and moving meetings, chasing follow-ups, deciding which mail matters. OpenAI's Dots shows the pattern we want: a personal, always-on assistant with memory and permissions. Ours is narrower and voice-first, built for sales reps on Microsoft 365.
 
 **End goal.** A voice assistant that can:
 - create, move and delete meetings

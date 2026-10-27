@@ -5,7 +5,6 @@ A voice assistant for sales reps that works across Outlook and Teams. It is bein
 - Plan: [docs/ROADMAP.md](docs/ROADMAP.md)
 - Terms: [GLOSSARY.md](GLOSSARY.md)
 - Decisions: [docs/adr/](docs/adr/)
-- Vendor research: [docs/research/](docs/research/)
 
 ## Run it
 
