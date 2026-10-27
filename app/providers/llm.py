@@ -6,6 +6,7 @@ both. FallbackLLM switches to the local model when the free cloud tier runs out.
 
 import json
 import re
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -23,6 +24,16 @@ class LLMError(Exception):
 
 class LLMUnavailable(LLMError):
     """Rate-limited, unreachable or not configured: worth switching provider."""
+
+
+class InvalidToolCall(LLMError):
+    """The provider rejected the model's tool call (e.g. wrong argument type). The model can retry."""
+
+
+class RateLimited(LLMUnavailable):
+    def __init__(self, message: str, retry_after: float | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 @dataclass
@@ -71,7 +82,17 @@ class OpenAICompatibleLLM:
         except httpx.HTTPError as exc:
             raise LLMUnavailable(f"{self.name} unreachable: {exc}") from exc
         if response.status_code == 429:
-            raise LLMUnavailable(f"{self.name} rate limit reached")
+            try:
+                retry_after = float(response.headers.get("retry-after", ""))
+            except ValueError:
+                retry_after = None
+            raise RateLimited(f"{self.name} rate limit reached", retry_after)
+        if response.status_code == 400 and "tool_use_failed" in response.text:
+            try:
+                detail = response.json()["error"]["message"]
+            except Exception:
+                detail = response.text[:300]
+            raise InvalidToolCall(detail)
         if response.status_code >= 400:
             raise LLMError(f"{self.name} returned {response.status_code}: {response.text[:300]}")
         return parse_message(response.json()["choices"][0]["message"])
@@ -89,6 +110,30 @@ def parse_message(message: dict) -> AssistantTurn:
         calls.append(ToolCall(raw.get("id") or f"call_{uuid.uuid4().hex[:8]}", fn["name"], parsed or {}))
     content = _THINK.sub("", message.get("content") or "").strip()
     return AssistantTurn(content, calls)
+
+
+MAX_WAIT_SECONDS = 30  # per-minute limits: wait it out; daily limits: switch
+
+
+class Patient:
+    """Waits out short rate limits (Groq's per-minute token limit) instead of failing."""
+
+    def __init__(self, inner: LLM, sleep: Callable[[float], None] = time.sleep, attempts: int = 4):
+        self._inner = inner
+        self._sleep = sleep
+        self._attempts = attempts
+        self.name = inner.name
+
+    def complete(self, messages: list[dict], tools: list[dict]) -> AssistantTurn:
+        for attempt in range(self._attempts):
+            try:
+                return self._inner.complete(messages, tools)
+            except RateLimited as exc:
+                short = exc.retry_after is not None and exc.retry_after <= MAX_WAIT_SECONDS
+                if not short or attempt == self._attempts - 1:
+                    raise
+                self._sleep(exc.retry_after + 0.5)
+        raise AssertionError("unreachable")
 
 
 class FallbackLLM:

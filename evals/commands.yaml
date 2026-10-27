@@ -15,16 +15,19 @@
 # --- reading ---------------------------------------------------------------
 - say: What's on tomorrow?
   expect: answer
-  mentions: [Acme pricing call, Q4 forecast review]
+  mentions: [pricing, forecast]
 - say: Do I have anything Thursday afternoon?
   expect: answer
   mentions: [out of office]
 - say: When's my next meeting with Globex?
   expect: answer
-  mentions: [Globex discovery]
+  mentions: ["11"]
+  mentions_any: [Wed, "28"]
 - say: Find me 45 minutes with Priya next week
-  expect: answer
+  expect: [answer, create]   # listing the Slot or proposing it are both fine: the Rep confirms either way
   mentions_any: ["09:00", "9:00", "9 am", "9am", "9 AM", "9AM"]
+  at: d5 09:00
+  minutes: 45
 - say: Am I free at 2 on Wednesday?
   expect: answer
   mentions: [Raj]

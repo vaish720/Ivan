@@ -107,6 +107,30 @@ def test_fallback_switches_once_primary_is_rate_limited():
     assert llm.notice == "Using the slower local model (groq rate limit reached)."
 
 
+def test_patient_waits_out_short_rate_limits_but_not_daily_ones():
+    from app.providers.llm import Patient, RateLimited
+
+    class Flaky:
+        name = "groq"
+
+        def __init__(self, errors):
+            self.errors = list(errors)
+
+        def complete(self, messages, tools):
+            if self.errors:
+                raise self.errors.pop(0)
+            return say("ok")
+
+    waits = []
+    llm = Patient(Flaky([RateLimited("tpm", 2.0), RateLimited("tpm", 3.0)]), sleep=waits.append)
+    assert llm.complete([], []).content == "ok"
+    assert waits == [2.5, 3.5]
+
+    daily = Patient(Flaky([RateLimited("rpd", 3600.0)]), sleep=waits.append)
+    with pytest.raises(RateLimited):
+        daily.complete([], [])
+
+
 def test_parse_strips_thinking_and_reads_tool_arguments():
     turn = parse_message(
         {
@@ -116,3 +140,29 @@ def test_parse_strips_thinking_and_reads_tool_arguments():
     )
     assert turn.content == "Sure."
     assert turn.tool_calls[0].arguments == {"start_date": "2026-10-27"}
+
+
+def test_rejected_tool_call_is_fed_back_and_retried(make_session):
+    from app.providers.llm import InvalidToolCall
+
+    class RejectsOnce(ScriptedLLM):
+        def complete(self, messages, tools):
+            if not self.seen:
+                self.seen.append(messages)
+                raise InvalidToolCall("/note: expected string, but got null")
+            return super().complete(messages, tools)
+
+    llm = RejectsOnce(say("Which meeting?"))
+    session = make_session(llm)
+    assert session.handle("cancel my call").text == "Which meeting?"
+    assert "rejected" in llm.seen[-1][-1]["content"]
+
+
+def test_null_optional_arguments_are_ignored(skill, gate):
+    skill.begin_turn()
+    reply = skill.call(
+        "propose_create_meeting",
+        {"title": "x", "start": "2026-10-28T16:00", "attendee_emails": ["sam.carter@acme.example"],
+         "duration_minutes": None, "teams": None},
+    )
+    assert "NOT done yet" in reply and gate.pending().facts["is_teams"] is True

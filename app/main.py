@@ -11,7 +11,7 @@ from app.core.activity_log import ActivityLog
 from app.core.agent import Agent
 from app.core.confirmation import ConfirmationGate
 from app.core.session import Session
-from app.providers.llm import GROQ_BASE_URL, FallbackLLM, OpenAICompatibleLLM
+from app.providers.llm import GROQ_BASE_URL, FallbackLLM, OpenAICompatibleLLM, Patient
 from app.skills.calendar.model import Contact
 from app.skills.calendar.port import CalendarPort
 from app.skills.calendar.skill import TOOL_SPECS, CalendarSkill
@@ -32,11 +32,13 @@ def build_calendar(settings: Settings) -> CalendarPort:
     return FakeCalendar(rep, get_localzone_name())
 
 
-def build_llm(settings: Settings, log: ActivityLog):
+def build_llm(settings: Settings, log: ActivityLog, fallback: bool = True):
     ollama = OpenAICompatibleLLM("ollama", settings.ollama_base_url, settings.ollama_model)
     if settings.llm_provider == "ollama":
         return ollama
-    groq = OpenAICompatibleLLM("groq", GROQ_BASE_URL, settings.groq_model, settings.groq_api_key)
+    groq = Patient(OpenAICompatibleLLM("groq", GROQ_BASE_URL, settings.groq_model, settings.groq_api_key))
+    if not fallback:
+        return groq
     return FallbackLLM(groq, ollama, lambda reason: log.record("llm", {"switched_to": "ollama"}, "notice", reason))
 
 

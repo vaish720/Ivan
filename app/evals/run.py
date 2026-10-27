@@ -86,6 +86,7 @@ def main() -> None:
     parser.add_argument("--only", type=int, help="run a single case by number (1-based)")
     parser.add_argument("--provider", choices=["groq", "ollama"])
     args = parser.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows consoles default to cp1252
 
     settings = get_settings()
     if args.provider:
@@ -103,7 +104,7 @@ def main() -> None:
     print(f"Eval: {len(numbered)} commands, LLM provider {settings.llm_provider}, clock {now:%a %d %b %H:%M}\n")
     for n, case in numbered:
         log = ActivityLog()
-        llm = build_llm(settings, log)
+        llm = build_llm(settings, log, fallback=False)  # measure one provider, never a silent mix
         session = build_session(settings, FakeCalendar(rep, str(tz), now=now), log, clock=lambda: now, llm=llm)
         started = clock_time.monotonic()
         reply = session.handle(case["say"])
@@ -112,9 +113,11 @@ def main() -> None:
         outcome = judge(case, reply, days, tz)
         seconds = clock_time.monotonic() - started
         mark = "PASS" if outcome.passed else "FAIL"
-        print(f"{mark} {n:>2}. {case['say']}  [{outcome.got}, {seconds:.1f}s]")
+        print(f"{mark} {n:>2}. {case['say']}  [{outcome.got}, {seconds:.1f}s]", flush=True)
         if not outcome.passed:
             print(f"        {outcome.why}\n        reply: {outcome.reply[:160]}")
+            for entry in reversed(log.recent()):
+                print(f"        tool: {entry.tool} {json.dumps(entry.args)[:120]} -> {entry.status}: {entry.summary[:90]}")
         results.append({"n": n, "say": case["say"], "passed": outcome.passed, "got": outcome.got,
                         "why": outcome.why, "reply": outcome.reply, "seconds": round(seconds, 1),
                         "llm": getattr(llm, "name", settings.llm_provider)})

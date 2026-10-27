@@ -4,6 +4,7 @@ Reading tools answer straight away. Changing tools never touch the calendar: the
 build a Proposed Action and hand it to the confirmation gate.
 """
 
+import re
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -15,6 +16,7 @@ from app.skills.calendar.port import CalendarPort
 from app.skills.calendar.slots import LEAD_TIME, find_slots
 
 DEFAULT_MINUTES = 30
+_FILLER = {"from", "the", "and", "with", "guy", "lady", "person", "client", "colleague", "team", "someone"}
 
 
 class ToolError(Exception):
@@ -42,6 +44,7 @@ class CalendarSkill:
         self._log = log
         self._clock = clock
         self._refs: dict[str, str] = {}  # short ref (m1) -> event id, for this conversation
+        self._proposed_this_turn = False
 
     # --- helpers -----------------------------------------------------------------------
 
@@ -54,6 +57,10 @@ class CalendarSkill:
 
     def reset_conversation(self) -> None:
         self._refs.clear()
+
+    def begin_turn(self) -> None:
+        """Called once per Rep request: only one Proposed Action may be made per request."""
+        self._proposed_this_turn = False
 
     def _ref_for(self, event: CalendarEvent) -> str:
         for ref, event_id in self._refs.items():
@@ -160,10 +167,37 @@ class CalendarSkill:
             return f"Nothing on the calendar from {first} to {last}."
         return "\n".join(self._describe(e) for e in events)
 
-    def search_contacts(self, query: str) -> str:
+    def _find_contacts(self, query: str) -> list[Contact]:
+        """Whole query first; if that finds nobody, people matching every word ("Lena Globex")."""
         found = self._cal.search_contacts(query)
+        if found:
+            return found
+        words = [w for w in re.findall(r"[\w.@'-]+", query.lower()) if len(w) > 2 and w not in _FILLER]
+        matches = [set(self._cal.search_contacts(w)) for w in words]
+        matches = [m for m in matches if m]
+        if not matches:
+            return []
+        common = set.intersection(*matches)
+        return sorted(common or set.union(*matches), key=lambda c: c.name)
+
+    def find_meetings(self, text: str) -> str:
+        """Upcoming Meetings and Blocks (next 14 days) whose title, people or company match every word of text."""
+        words = [w for w in re.findall(r"[\w.@'-]+", text.lower()) if len(w) > 2 and w not in _FILLER]
+        now = self.now()
+        hits = []
+        for e in self._cal.list_events(now, now + timedelta(days=14)):
+            haystack = " ".join([e.title, e.organiser.name, *(f"{a.name} {a.email} {a.company}" for a in e.attendees)]).lower()
+            if words and all(w in haystack for w in words):
+                hits.append(e)
+        if not hits:
+            return f"No upcoming meetings match '{text}' in the next 14 days."
+        return "\n".join(self._describe(e) for e in hits)
+
+    def search_contacts(self, query: str) -> str:
+        found = self._find_contacts(query)
         if not found:
-            return f"No contacts match '{query}'. Ask the Rep for an email address."
+            return (f"No contacts match '{query}'. If the Rep already gave an email address, use it as-is; "
+                    "otherwise ask them for one.")
         lines = [f"{c.name} <{c.email}> {c.kind}" + (f", {c.company}" if c.company else "") for c in found]
         if len(found) > 1:
             lines.insert(0, f"{len(found)} matches - ask the Rep which one they mean:")
@@ -231,7 +265,10 @@ class CalendarSkill:
         self._gate.propose(action)
         return self._proposed_reply(action)
 
-    def propose_reschedule(self, meeting_ref: str, new_start: str, duration_minutes: int | None = None, note: str = "") -> str:
+    def propose_reschedule(self, meeting_ref: str, new_start: str, duration_minutes: int | None = None, note: str = "",
+                           whole_series: bool = False) -> str:
+        if whole_series:
+            raise ToolError("Changing a whole Series isn't supported yet. Tell the Rep, and offer to change just one occurrence.")
         event = self._event(meeting_ref)
         if not event.is_organiser:
             raise ToolError(
@@ -263,7 +300,9 @@ class CalendarSkill:
         self._gate.propose(action)
         return self._proposed_reply(action)
 
-    def propose_cancel(self, meeting_ref: str, note: str = "") -> str:
+    def propose_cancel(self, meeting_ref: str, note: str = "", whole_series: bool = False) -> str:
+        if whole_series:
+            raise ToolError("Changing a whole Series isn't supported yet. Tell the Rep, and offer to change just one occurrence.")
         event = self._event(meeting_ref)
         if not event.is_organiser:
             raise ToolError(
@@ -292,7 +331,9 @@ class CalendarSkill:
         self._gate.propose(action)
         return self._proposed_reply(action)
 
-    def propose_decline(self, meeting_ref: str, note: str = "") -> str:
+    def propose_decline(self, meeting_ref: str, note: str = "", whole_series: bool = False) -> str:
+        if whole_series:
+            raise ToolError("Changing a whole Series isn't supported yet. Tell the Rep, and offer to change just one occurrence.")
         event = self._event(meeting_ref)
         if event.is_organiser:
             raise ToolError(f"The Rep organises '{event.title}'; use propose_cancel instead of declining.")
@@ -327,6 +368,7 @@ class CalendarSkill:
     def tools(self) -> dict[str, Callable[..., str]]:
         return {
             "list_calendar": self.list_calendar,
+            "find_meetings": self.find_meetings,
             "search_contacts": self.search_contacts,
             "find_slots": self.find_slots,
             "propose_create_meeting": self.propose_create_meeting,
@@ -339,6 +381,12 @@ class CalendarSkill:
         tool = self.tools().get(name)
         if tool is None:
             return f"Error: unknown tool {name}"
+        if name.startswith("propose_") and self._proposed_this_turn:
+            message = ("Only one change can wait for confirmation at a time and one is already proposed. "
+                       "Ask the Rep to confirm it first; offer the next change after that.")
+            self._log.record(name, args, "failed", message)
+            return f"Error: {message}"
+        args = {k: v for k, v in args.items() if v is not None}  # models send null for "not given"
         try:
             result = tool(**args)
         except ToolError as exc:
@@ -347,7 +395,9 @@ class CalendarSkill:
         except TypeError as exc:
             self._log.record(name, args, "failed", str(exc))
             return f"Error: bad arguments for {name}: {exc}"
-        if not name.startswith("propose_"):
+        if name.startswith("propose_"):
+            self._proposed_this_turn = True
+        else:
             self._log.record(name, args, "ok", result.splitlines()[0][:200])
         return result
 
@@ -366,6 +416,14 @@ TOOL_SPECS = [
                 },
                 "required": ["start_date"],
             },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "find_meetings",
+            "description": "Find upcoming Meetings (next 14 days) by title, attendee name or company, e.g. 'Globex discovery' or 'Raj Kumar'. Use this when the Rep names a Meeting without saying which day.",
+            "parameters": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
         },
     },
     {
@@ -422,6 +480,7 @@ TOOL_SPECS = [
                     "new_start": {"type": "string", "description": "Local time, ISO format"},
                     "duration_minutes": {"type": "integer", "description": "Only if the length changes"},
                     "note": {"type": "string", "description": "Optional note the Rep dictated"},
+                    "whole_series": {"type": "boolean", "description": "true if the Rep asked to change every occurrence of a recurring Meeting"},
                 },
                 "required": ["meeting_ref", "new_start"],
             },
@@ -434,7 +493,7 @@ TOOL_SPECS = [
             "description": "Propose cancelling a Meeting the Rep organises, or removing a Block (single occurrence only). The Rep must confirm.",
             "parameters": {
                 "type": "object",
-                "properties": {"meeting_ref": {"type": "string"}, "note": {"type": "string"}},
+                "properties": {"meeting_ref": {"type": "string"}, "note": {"type": "string"}, "whole_series": {"type": "boolean", "description": "true if the Rep asked to change every occurrence of a recurring Meeting"}},
                 "required": ["meeting_ref"],
             },
         },
@@ -446,9 +505,21 @@ TOOL_SPECS = [
             "description": "Propose declining a Meeting someone else organises; use the note to suggest a new time if the Rep wants it moved. The Rep must confirm.",
             "parameters": {
                 "type": "object",
-                "properties": {"meeting_ref": {"type": "string"}, "note": {"type": "string"}},
+                "properties": {"meeting_ref": {"type": "string"}, "note": {"type": "string"}, "whole_series": {"type": "boolean", "description": "true if the Rep asked to change every occurrence of a recurring Meeting"}},
                 "required": ["meeting_ref"],
             },
         },
     },
 ]
+
+
+def _allow_null_for_optional(specs: list[dict]) -> None:
+    """Models often send null for an optional field; Groq rejects that unless the schema allows it."""
+    for spec in specs:
+        params = spec["function"]["parameters"]
+        for name, prop in params.get("properties", {}).items():
+            if name not in params.get("required", []):
+                prop["type"] = [prop["type"], "null"]
+
+
+_allow_null_for_optional(TOOL_SPECS)

@@ -118,3 +118,34 @@ def _day(d: int, span_days: int = 1):
 
     start = datetime(2026, 10, d, tzinfo=TZ)
     return start, start + timedelta(days=span_days)
+
+
+def test_whole_series_changes_are_refused(skill, gate):
+    ref = ref_of(skill.list_calendar("2026-10-26"), "Weekly pipeline sync")
+    reply = skill.call("propose_cancel", {"meeting_ref": ref, "whole_series": True})
+    assert "isn't supported yet" in reply and gate.pending() is None
+
+
+def test_only_one_proposal_per_request(skill, gate):
+    listing = skill.list_calendar("2026-10-26", "2026-11-03")
+    first, second = [ref_of(listing, t) for t in ("Acme pricing call", "Globex discovery")]
+    skill.begin_turn()
+    skill.call("propose_cancel", {"meeting_ref": first})
+    reply = skill.call("propose_cancel", {"meeting_ref": second})
+    assert reply.startswith("Error: Only one change")
+    assert gate.pending().facts["title"] == "Acme pricing call"
+    skill.begin_turn()
+    assert "NOT done yet" in skill.call("propose_cancel", {"meeting_ref": second})
+
+
+def test_contact_search_matches_name_and_company_words(skill):
+    assert "lena.ortiz@globex.example" in skill.search_contacts("Lena Globex")
+    assert "lena.ortiz@globex.example" in skill.search_contacts("Lena from Globex")
+    assert "sam.carter@acme.example" in skill.search_contacts("the Acme guy")
+
+
+def test_find_meetings_by_name_across_the_coming_days(skill):
+    out = skill.find_meetings("Globex discovery")
+    assert "Wed 28 Oct, 11:00–11:45 | Globex discovery" in out
+    assert "Raj Kumar sync" in skill.find_meetings("Raj Kumar")
+    assert skill.find_meetings("Hooli").startswith("No upcoming meetings")
