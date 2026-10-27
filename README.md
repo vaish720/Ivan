@@ -11,7 +11,8 @@ A voice assistant for sales reps that works across Outlook and Teams. It is bein
 You need [uv](https://docs.astral.sh/uv/). It installs Python 3.11 for the project.
 
 ```sh
-cp backend/.env.example backend/.env   # then add GROQ_API_KEY (free at console.groq.com)
+cd backend
+cp .env.example .env      # then add GROQ_API_KEY (free at console.groq.com)
 uv sync
 uv run app                # http://localhost:8000
 ```
@@ -34,6 +35,7 @@ Every change appears as a card with **Confirm** and **Cancel** buttons. You can 
 ## Test
 
 ```sh
+cd backend
 uv run pytest             # fast tests, no LLM, no network
 uv run eval               # the 30 test commands against the real LLM (needs GROQ_API_KEY)
 uv run eval --only 6      # a single command
@@ -47,7 +49,7 @@ Phase 0 is finished when `uv run eval` scores at least 90%.
 frontend/                what runs in the browser
   chat.html              the chat page (http://localhost:8000)
   activity.html          the Activity Log page
-backend/                 the Python app
+backend/                 the Python app (pyproject.toml, uv.lock, .env live here)
   app/
     main.py              starting point for `uv run app`
     web/routes.py        the HTTP API the pages call
@@ -60,4 +62,4 @@ backend/                 the Python app
   tests/                 pytest
 ```
 
-Run every command from the repo root.
+Run `uv` commands from `backend/`, where `pyproject.toml` lives.
