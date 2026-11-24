@@ -32,6 +32,8 @@ The app starts on a **sample calendar** with a made-up week, so no Microsoft acc
 
 Every change appears as a card with **Confirm** and **Cancel** buttons. You can also type "yes" or "no". The **Activity Log** page lists everything the assistant read or did.
 
+**Voice:** in Edge or Chrome, press the 🎤 button and speak. The assistant reads its reply aloud. After a Proposed Action it listens for your "yes" or "no". Press the mic while it's talking to cut it off. Typed messages get silent replies. The browser does the speech recognition (Chrome uses Google, Edge uses Microsoft), which is fine for the sample calendar. Firefox has no speech recognition, so the mic button is hidden there.
+
 ## Test
 
 ```sh

@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.core.activity_log import ActivityLog
@@ -18,6 +19,7 @@ class ChatIn(BaseModel):
 
 def create_app(session: Session, log: ActivityLog, backend: str) -> FastAPI:
     app = FastAPI(title="Sales assistant", docs_url=None, redoc_url=None)
+    app.mount("/static", StaticFiles(directory=PAGES), name="static")
 
     @app.get("/", response_class=HTMLResponse)
     def chat_page():

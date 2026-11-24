@@ -12,8 +12,11 @@ def test_chat_confirm_and_activity_over_http(skill, gate, log, clock):
     session = Session(Agent(llm, skill, TOOL_SPECS, "Vaishnavi Soni", clock), gate, skill, llm)
     client = TestClient(create_app(session, log, "fake"))
 
-    assert "Sales Assistant" in client.get("/").text
+    page = client.get("/").text
+    assert "Sales Assistant" in page and '<script src="/static/voice.js">' in page
     assert "Activity Log" in client.get("/activity").text
+    voice = client.get("/static/voice.js")
+    assert voice.status_code == 200 and "const Voice" in voice.text
 
     reply = client.post("/api/chat", json={"message": "book Sam wed 4"}).json()
     assert reply["proposal"]["headline"] == "Create Teams meeting"
